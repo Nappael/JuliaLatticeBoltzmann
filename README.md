@@ -1,4 +1,4 @@
-# LatticeBoltzmannWaves.jl
+# Julia Lattice Boltzmann
 
 Julia implementation of the standard Lattice Bhatnagar-Gross-Krook (LGBK) approach on a periodic D2Q9 discretised grid.
 
