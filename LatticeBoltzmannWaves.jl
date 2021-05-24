@@ -60,7 +60,7 @@ end
     @einsum uy[i,j] = F[i,j,k] * cys[k] / rho[i,j]
 end
 
-function iterateLB(f::LatticeState, Nt::Int64, output::String)
+function iterateLB(f::LatticeState, Nt::Int64)
     for it in 1:Nt
         calcU!(f.ux, f.uy, f.F, f.rho)
         calcFeq!(f.Feq, f.rho, f.ux,f.uy) #calculate Feq then apply the collision step
@@ -73,6 +73,6 @@ end
 problem = LatticeState(Nx,Ny)
 problem.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; #Initial condition. Modify density with a pulse in the middle
 
-iterateLB(problem,Nt,"LBpulse.gif") #run simulation and save output
+iterateLB(problem,Nt) #run simulation and save output
 
 Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal)#plot the final density variation
