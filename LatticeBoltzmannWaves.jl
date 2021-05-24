@@ -5,19 +5,19 @@ const Nx          = 401    # resolution x-dir
 const Ny          = 401    # resolution y-dir
 const rho0        = 1000    # average density
 const Nt          = 600   # number of timesteps
-const NL          = 9       #D2Q9 Lattice
+const NL          = 9       # D2Q9 Lattice
 const tau         = 0.6    # collision timescale
 
 const cxs = [0, 0, 1, 1, 1, 0,-1,-1,-1]
 const cys = [0, 1, 1, 0,-1,-1,-1, 0, 1]
-const opp = [1,6,7,8,9,2,3,4,5] #bounce back array, opposite direction
+const opp = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction
 const weights = [4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
 
 ##build the struct that will hold the state of the LB system##
 mutable struct LatticeState <: Function
     rho::Array{Float32, 2}    # macroscale density
     ux::Array{Float32, 2}    # macroscale velocity, x component
-    uy::Array{Float32, 2}    # macroscale velocity, x component
+    uy::Array{Float32, 2}    # macroscale velocity, y component
     F::Array{Float32, 3}    # particle distribution function
     Feq::Array{Float32, 3}    # forcing term for collisioin
     tmp::Array{Float32, 2}   # place-holder array
@@ -73,8 +73,6 @@ end
 problem = LatticeState(Nx,Ny)
 problem.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; #Initial condition. Modify density with a pulse in the middle
 
-#run simulation and save output
-iterateLB(problem,Nt,"LBpulse.gif")
+iterateLB(problem,Nt,"LBpulse.gif") #run simulation and save output
 
-#plot the final density variation
-Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal)
+Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal)#plot the final density variation
