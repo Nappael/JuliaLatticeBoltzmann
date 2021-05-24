@@ -78,4 +78,3 @@ iterateLB(problem,Nt,"LBpulse.gif")
 
 #plot the final density variation
 Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal)
-
