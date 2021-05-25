@@ -83,4 +83,6 @@ end
 problem = LatticeState(Nx,Ny)
 set_initial_condition!(problem)
 iterate_lb!(problem,Nt) # Run simulation
-Plots.heatmap(problem.rho, c=:redsblues, size=(650,640), clims=(rho0-.2, rho0+0.2), aspect_ratio=:equal) # Plot the final density variation
+Plots.heatmap(problem.rho, c=:redsblues, size=(650,640), clims=(rho0-.2, rho0+0.2), right_margin = 5Plots.mm,aspect_ratio=:equal) # Plot the final density variation
+title!("Final density")
+savefig("output.png")
