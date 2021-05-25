@@ -24,17 +24,14 @@ mutable struct LatticeState
 
     function LatticeState(Nx, Ny) #constructor
         self = new()
-
         self.F = fill(1.f0, (Nx,Ny,NL))
-        self.tmp = fill(1.f0, (Nx,Ny))
+        self.Feq = similar(self.F)
         self.ux = fill(0.f0, (Nx,Ny))
-        self.uy = fill(0.f0, (Nx,Ny))
-        self.rho = fill(0.f0, (Nx,Ny))
-
+        self.uy = similar(self.ux)
+        self.rho = similar(self.ux)
+        self.tmp = similar(self.ux)
         sum!(self.rho, self.F)
-        calculate_u!(self.ux, self.uy, self.F, self.rho)
-
-        self.Feq = zeros(Nx,Ny,NL)
+        set_initial_condition!(self)
         return self
     end
 end
@@ -81,13 +78,13 @@ end
 
 @fastmath @inbounds function set_initial_condition!(f::LatticeState)
     @. f.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; # Initial condition. Modify density with a pulse in the middle
-    correct_F!(f.F,f.rho)
+    correct_F!(f.F,f.rho) #correct F to the new density
     sum!(f.rho,f.F)
+    calculate_u!(f.ux,f.uy,f.F,f.rho)
 end
 
 function run()
     problem = LatticeState(Nx,Ny)
-    set_initial_condition!(problem)
     iterate_lb(problem,Nt) # Run simulation
     Plots.heatmap(problem.rho, c=:redsblues, size=(650,640), clims=(rho0-.2, rho0+0.2), aspect_ratio=:equal) # Plot the final density variation
 end
