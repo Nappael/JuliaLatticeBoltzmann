@@ -1,4 +1,4 @@
-using Plots,  Einsum
+using Plots, Einsum
 
 # Simulation parameters
 const Nx          = 401    # resolution x-dir
@@ -7,11 +7,11 @@ const rho0        = 1000    # average density
 const Nt          = 600   # number of timesteps
 const NL          = 9       # D2Q9 Lattice
 const tau         = 0.6    # collision timescale
-const omega       = 1/tau
+const omega       = 1/tau # appears in the collision equation, precomputing saves a division.
 
 const cxs = [0, 0, 1, 1, 1, 0,-1,-1,-1]
 const cys = [0, 1, 1, 0,-1,-1,-1, 0, 1]
-const opp = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction
+const opp = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction. Not used but will be when boundaries are added.
 const weights = [4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
 
 ##build the struct that will hold the state of the LB system##
@@ -20,7 +20,7 @@ mutable struct LatticeState
     ux::Array{Float32, 2}    # macroscale velocity, x component
     uy::Array{Float32, 2}    # macroscale velocity, y component
     F::Array{Float32, 3}    # particle distribution function
-    Feq::Array{Float32, 3}    # forcing term for collisioin
+    Feq::Array{Float32, 3}    # equillibrium term for collision
     tmp::Array{Float32, 2}   # place-holder array
 
     function LatticeState(Nx, Ny) #constructor
@@ -50,7 +50,7 @@ end
 
 @fastmath @inbounds function feq_point(rho::Real,ux::Real,uy::Real,cx::Int,cy::Int,weight::Real)
     cu = (cx * ux +  cy * uy)
-    return rho*weight*(1. +  3. *cu + 4.5*cu*cu - 1.5*(ux.^2 + uy.^2))
+    return rho*weight*(1. +  3. *cu + 4.5*cu*cu - 1.5*(ux*ux + uy*uy))
 end
 
 @fastmath @inbounds function calculate_feq!(Feq::Array{<:Real},rho::Array{<:Real},ux::Array{<:Real},uy::Array{<:Real})
@@ -68,17 +68,15 @@ end
 
 function iterate_lb(f::LatticeState, Nt::Int)
     for it in 1:Nt
-        calculate_u!(f.ux, f.uy, f.F, f.rho)
-        calculate_feq!(f.Feq, f.rho, f.ux,f.uy) #calculate Feq then apply the collision step
+        calculate_u!(f.ux, f.uy, f.F, f.rho) # Calculate macroscopic velocity
+        calculate_feq!(f.Feq, f.rho, f.ux,f.uy) # Calculate Feq then apply the collision step
         apply_collision!(f.F, f.Feq)
-        apply_drift!(f.tmp,f.F) #Apply the particle drift
-        sum!(f.rho, f.F) # Calculate fluid variables
+        apply_drift!(f.tmp,f.F) # Apply the particle drift
+        sum!(f.rho, f.F) # Calculate fluid density
     end
 end
 
 problem = LatticeState(Nx,Ny)
-problem.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; #Initial condition. Modify density with a pulse in the middle
-
-iterate_lb(problem,Nt) #run simulation and save output
-
-Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal)#plot the final density variation
+problem.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; # Initial condition. Modify density with a pulse in the middle
+iterate_lb(problem,Nt) # Run simulation
+Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal) # Plot the final density variation
