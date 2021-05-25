@@ -49,8 +49,8 @@ end
 end
 
 @fastmath @inbounds function feq_point(rho::Real,ux::Real,uy::Real,cx::Int,cy::Int,weight::Real)
-    cu = 1.5 * (cx * ux +  cy * uy)
-    return rho*weight*(1. +  2. *cu + 3. *cu*cu - 1.5*(ux.^2 + uy.^2))
+    cu = (cx * ux +  cy * uy)
+    return rho*weight*(1. +  3. *cu + 4.5*cu*cu - 1.5*(ux.^2 + uy.^2))
 end
 
 @fastmath @inbounds function calculate_feq!(Feq::Array{<:Real},rho::Array{<:Real},ux::Array{<:Real},uy::Array{<:Real})
