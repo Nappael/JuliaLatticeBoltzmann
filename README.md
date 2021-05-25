@@ -7,3 +7,13 @@ Created as a personal weekend project to learn more about Lattice Boltzmann meth
 I hope that the simplicity of the code can make it serve as a learning resource for others.
 
 ![plot](./LBpulse.gif)
+
+## Usage
+
+1. After cloning the repository, run the Julia REPL in the created folder.
+2. Then, to install dependencies:
+````
+julia> ]
+pkg> activate .
+pkg> instantiate
+````
