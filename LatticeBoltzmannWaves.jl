@@ -1,8 +1,7 @@
 using Plots, Einsum
 
 # Simulation parameters
-const Nx          = 401    # resolution x-dir
-const Ny          = 401    # resolution y-dir
+const Nx, Ny          = 401, 401    # grid points in x and y
 const rho0        = 1000    # average density
 const Nt          = 600   # number of timesteps
 const NL          = 9       # D2Q9 Lattice
@@ -66,6 +65,10 @@ end
     @einsum uy[i,j] = F[i,j,k] * cys[k] / rho[i,j]
 end
 
+@fastmath @inbounds function correct_F!(F::Array{<:Real},rho::Array{<:Real})
+    @einsum F[i,j,k] = F[i,j,k] * rho0 / rho[i,j]
+end
+
 function iterate_lb(f::LatticeState, Nt::Int)
     for it in 1:Nt
         calculate_u!(f.ux, f.uy, f.F, f.rho) # Calculate macroscopic velocity
@@ -76,7 +79,17 @@ function iterate_lb(f::LatticeState, Nt::Int)
     end
 end
 
-problem = LatticeState(Nx,Ny)
-problem.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; # Initial condition. Modify density with a pulse in the middle
-iterate_lb(problem,Nt) # Run simulation
-Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal) # Plot the final density variation
+@fastmath @inbounds function set_initial_condition!(f::LatticeState)
+    @. f.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; # Initial condition. Modify density with a pulse in the middle
+    correct_F!(f.F,f.rho)
+    sum!(f.rho,f.F)
+end
+
+function run()
+    problem = LatticeState(Nx,Ny)
+    set_initial_condition!(problem)
+    iterate_lb(problem,Nt) # Run simulation
+    Plots.heatmap(problem.rho, c=:redsblues, size=(650,640), clims=(rho0-.2, rho0+0.2), aspect_ratio=:equal) # Plot the final density variation
+end
+
+run()
