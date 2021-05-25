@@ -31,7 +31,6 @@ mutable struct LatticeState
         self.rho = similar(self.ux)
         self.tmp = similar(self.ux)
         sum!(self.rho, self.F)
-        set_initial_condition!(self)
         return self
     end
 end
@@ -66,7 +65,7 @@ end
     @einsum F[i,j,k] = F[i,j,k] * rho0 / rho[i,j]
 end
 
-function iterate_lb(f::LatticeState, Nt::Int)
+function iterate_lb!(f::LatticeState, Nt::Int)
     for it in 1:Nt
         calculate_u!(f.ux, f.uy, f.F, f.rho) # Calculate macroscopic velocity
         calculate_feq!(f.Feq, f.rho, f.ux,f.uy) # Calculate Feq then apply the collision step
@@ -80,13 +79,9 @@ end
     @. f.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; # Initial condition. Modify density with a pulse in the middle
     correct_F!(f.F,f.rho) #correct F to the new density
     sum!(f.rho,f.F)
-    calculate_u!(f.ux,f.uy,f.F,f.rho)
 end
 
-function run()
-    problem = LatticeState(Nx,Ny)
-    iterate_lb(problem,Nt) # Run simulation
-    Plots.heatmap(problem.rho, c=:redsblues, size=(650,640), clims=(rho0-.2, rho0+0.2), aspect_ratio=:equal) # Plot the final density variation
-end
-
-run()
+problem = LatticeState(Nx,Ny)
+set_initial_condition!(problem)
+iterate_lb!(problem,Nt) # Run simulation
+Plots.heatmap(problem.rho, c=:redsblues, size=(650,640), clims=(rho0-.2, rho0+0.2), aspect_ratio=:equal) # Plot the final density variation
