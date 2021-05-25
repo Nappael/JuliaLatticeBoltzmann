@@ -1,17 +1,17 @@
 using Plots, Einsum
 
 # Simulation parameters
-const Nx, Ny          = 401, 401    # grid points in x and y
+const Nx, Ny      = 401, 401    # grid points in x and y
 const rho0        = 1000    # average density
 const Nt          = 600   # number of timesteps
 const NL          = 9       # D2Q9 Lattice
 const tau         = 0.6    # collision timescale
 const omega       = 1/tau # appears in the collision equation, precomputing saves a division.
 
-const cxs = [0, 0, 1, 1, 1, 0,-1,-1,-1]
-const cys = [0, 1, 1, 0,-1,-1,-1, 0, 1]
-const opp = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction. Not used but will be when boundaries are added.
-const weights = [4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
+const cxs         = [0, 0, 1, 1, 1, 0,-1,-1,-1]
+const cys         = [0, 1, 1, 0,-1,-1,-1, 0, 1]
+const opp         = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction. Not used but will be when boundaries are added.
+const weights     = [4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
 
 ##build the struct that will hold the state of the LB system##
 mutable struct LatticeState
@@ -67,18 +67,17 @@ end
 
 function iterate_lb!(f::LatticeState, Nt::Int)
     for it in 1:Nt
+        apply_drift!(f.tmp,f.F) # Particle streaming step
+        sum!(f.rho, f.F) # Calculate fluid density
         calculate_u!(f.ux, f.uy, f.F, f.rho) # Calculate macroscopic velocity
         calculate_feq!(f.Feq, f.rho, f.ux,f.uy) # Calculate Feq then apply the collision step
         apply_collision!(f.F, f.Feq)
-        apply_drift!(f.tmp,f.F) # Apply the particle drift
-        sum!(f.rho, f.F) # Calculate fluid density
     end
 end
 
 @fastmath @inbounds function set_initial_condition!(f::LatticeState)
     @. f.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; # Initial condition. Modify density with a pulse in the middle
     correct_F!(f.F,f.rho) #correct F to the new density
-    sum!(f.rho,f.F)
 end
 
 problem = LatticeState(Nx,Ny)
