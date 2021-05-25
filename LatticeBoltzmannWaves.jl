@@ -1,4 +1,4 @@
-using Plots, Einsum
+using Plots,  Einsum
 
 # Simulation parameters
 const Nx          = 401    # resolution x-dir
@@ -7,6 +7,7 @@ const rho0        = 1000    # average density
 const Nt          = 600   # number of timesteps
 const NL          = 9       # D2Q9 Lattice
 const tau         = 0.6    # collision timescale
+const omega       = 1/tau
 
 const cxs = [0, 0, 1, 1, 1, 0,-1,-1,-1]
 const cys = [0, 1, 1, 0,-1,-1,-1, 0, 1]
@@ -14,7 +15,7 @@ const opp = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction
 const weights = [4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
 
 ##build the struct that will hold the state of the LB system##
-mutable struct LatticeState <: Function
+mutable struct LatticeState
     rho::Array{Float32, 2}    # macroscale density
     ux::Array{Float32, 2}    # macroscale velocity, x component
     uy::Array{Float32, 2}    # macroscale velocity, y component
@@ -32,14 +33,14 @@ mutable struct LatticeState <: Function
         self.rho = fill(0.f0, (Nx,Ny))
 
         sum!(self.rho, self.F)
-        calcU!(self.ux, self.uy, self.F, self.rho)
+        calculate_u!(self.ux, self.uy, self.F, self.rho)
 
         self.Feq = zeros(Nx,Ny,NL)
         return self
     end
 end
 
-@fastmath @inbounds function applyDrift!(tmp::Array{Float32},F::Array{Float32})
+@fastmath @inbounds function apply_drift!(tmp::Array{<:Real},F::Array{<:Real})
     for i in 1:size(F)[3]
         A = @view F[:,:,i]
         circshift!(tmp,A, (cxs[i],0) )
@@ -47,25 +48,30 @@ end
     end
 end
 
-@fastmath @inbounds function calcFeq!(Feq::Array{Float32},rho::Array{Float32},ux::Array{Float32},uy::Array{Float32})
-    @einsum Feq[i,j,k]= rho[i,j]*weights[k]*(1. +  3. * (cxs[k] * ux[i,j] +  cys[k] * uy[i,j]) + 4.5*(cxs[k] * ux[i,j] +  cys[k] * uy[i,j]).^2 - 1.5*(ux[i,j].^2 + uy[i,j].^2))
+@fastmath @inbounds function feq_point(rho::Real,ux::Real,uy::Real,cx::Int,cy::Int,weight::Real)
+    cu = 1.5 * (cx * ux +  cy * uy)
+    return rho*weight*(1. +  2. *cu + 3. *cu*cu - 1.5*(ux.^2 + uy.^2))
 end
 
-@fastmath @inbounds function applyBGKCollision!(F::Array{Float32},Feq::Array{Float32})
-    @. F -= (1.0/tau) .* (F .- Feq)
+@fastmath @inbounds function calculate_feq!(Feq::Array{<:Real},rho::Array{<:Real},ux::Array{<:Real},uy::Array{<:Real})
+    @einsum Feq[i,j,k] = feq_point(rho[i,j],ux[i,j],uy[i,j],cxs[k],cys[k],weights[k])
 end
 
-@fastmath @inbounds function calcU!(ux::Array{Float32},uy::Array{Float32},F::Array{Float32},rho::Array{Float32})
+@fastmath @inbounds function apply_collision!(F::Array{<:Real},Feq::Array{<:Real})
+    @. F -= omega .* (F .- Feq)
+end
+
+@fastmath @inbounds function calculate_u!(ux::Array{<:Real},uy::Array{<:Real},F::Array{<:Real},rho::Array{<:Real})
     @einsum ux[i,j] = F[i,j,k] * cxs[k] / rho[i,j]
     @einsum uy[i,j] = F[i,j,k] * cys[k] / rho[i,j]
 end
 
-function iterateLB(f::LatticeState, Nt::Int64)
+function iterate_lb(f::LatticeState, Nt::Int)
     for it in 1:Nt
-        calcU!(f.ux, f.uy, f.F, f.rho)
-        calcFeq!(f.Feq, f.rho, f.ux,f.uy) #calculate Feq then apply the collision step
-        applyBGKCollision!(f.F, f.Feq)
-        applyDrift!(f.tmp,f.F) #Apply the particle drift
+        calculate_u!(f.ux, f.uy, f.F, f.rho)
+        calculate_feq!(f.Feq, f.rho, f.ux,f.uy) #calculate Feq then apply the collision step
+        apply_collision!(f.F, f.Feq)
+        apply_drift!(f.tmp,f.F) #Apply the particle drift
         sum!(f.rho, f.F) # Calculate fluid variables
     end
 end
@@ -73,6 +79,6 @@ end
 problem = LatticeState(Nx,Ny)
 problem.rho += [exp(-sqrt((x-Nx/2)^2 + (y-Ny/2)^2)) for x in 1:Nx, y in 1:Ny]; #Initial condition. Modify density with a pulse in the middle
 
-iterateLB(problem,Nt) #run simulation and save output
+iterate_lb(problem,Nt) #run simulation and save output
 
 Plots.heatmap(problem.rho, c=:viridis, size=(650,640), aspect_ratio=:equal)#plot the final density variation
