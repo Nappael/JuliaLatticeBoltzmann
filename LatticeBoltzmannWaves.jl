@@ -1,4 +1,4 @@
-using Plots, Einsum
+using Plots, Einsum, StaticArrays
 
 # Simulation parameters
 const Nx, Ny      = 401, 401    # grid points in x and y
@@ -8,31 +8,31 @@ const NL          = 9       # D2Q9 Lattice
 const tau         = 0.6    # collision timescale
 const omega       = 1/tau # appears in the collision equation, precomputing saves a division.
 
-const cxs         = [0, 0, 1, 1, 1, 0,-1,-1,-1]
-const cys         = [0, 1, 1, 0,-1,-1,-1, 0, 1]
-const opp         = [1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction. Not used but will be when boundaries are added.
-const weights     = [4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
+const cxs         = @SVector[0, 0, 1, 1, 1, 0,-1,-1,-1]
+const cys         = @SVector[0, 1, 1, 0,-1,-1,-1, 0, 1]
+const opp         = @SVector[1,6,7,8,9,2,3,4,5] # bounce back array, opposite direction. Not used but will be when boundaries are added.
+const weights     = @SVector[4/9,1/9,1/36,1/9,1/36,1/9,1/36,1/9,1/36] # sums to 1
 
 ##build the struct that will hold the state of the LB system##
-mutable struct LatticeState
+struct LatticeState
     rho::Array{Float32, 2}    # macroscale density
     ux::Array{Float32, 2}    # macroscale velocity, x component
     uy::Array{Float32, 2}    # macroscale velocity, y component
     F::Array{Float32, 3}    # particle distribution function
     Feq::Array{Float32, 3}    # equillibrium term for collision
     tmp::Array{Float32, 2}   # place-holder array
+end
 
-    function LatticeState(Nx, Ny) #constructor
-        self = new()
-        self.F = fill(1.f0, (Nx,Ny,NL))
-        self.Feq = similar(self.F)
-        self.ux = fill(0.f0, (Nx,Ny))
-        self.uy = similar(self.ux)
-        self.rho = similar(self.ux)
-        self.tmp = similar(self.ux)
-        sum!(self.rho, self.F)
-        return self
-    end
+function LatticeState(Nx,Ny)
+    F = ones(Nx,Ny,NL)
+    Feq = similar(F)
+    ux = zeros(Nx,Ny)
+    uy = similar(ux)
+    rho = similar(ux)
+    tmp = similar(ux)
+    sum!(rho, F)
+
+    return LatticeState(rho,ux,uy,F,Feq,tmp)
 end
 
 @fastmath @inbounds function apply_drift!(tmp::Array{<:Real},F::Array{<:Real})
